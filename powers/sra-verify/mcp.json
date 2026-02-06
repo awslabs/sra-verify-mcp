@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "awslabs.sraverify-mcp-server": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/schiefj/code/wwps-security-developer/sraverify/sra-verify-mcp/awslabs/sraverify_mcp_server/",
+        "run",
+        "server.py"
+      ],
+      "disabled": false,
+      "env": {
+        "AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"
+      }
+    }
+  }
+}

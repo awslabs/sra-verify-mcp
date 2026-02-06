@@ -41,7 +41,6 @@ samconfig.toml
 
 # Project specific
 *.csv
-*.json
 *.log
 *.bak
 *.tmp

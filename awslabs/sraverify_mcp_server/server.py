@@ -125,15 +125,14 @@ async def list_checks_by_account_type(account_type: str = 'all') -> Dict[str, Di
     checks = _default_sra.get_available_checks(account_type)
     return checks
 
-@mcp.tool(name='list_services')
 async def list_services() -> Dict[str, Any]:
     """Get all services supported by SRA Verify.
 
     Returns:
-        List of services
+        Dictionary containing the list of supported services.
     """
     services = _default_sra.get_available_services()
-    return services
+    return {"services": services}
 
 @mcp.tool(name='list_checks_by_service')
 async def list_checks_by_service(service: str) -> Dict[str, Dict[str, str]]:

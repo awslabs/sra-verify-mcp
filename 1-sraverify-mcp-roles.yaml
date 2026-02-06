@@ -1,0 +1,261 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template deploys the role needed for SRA Verify MCP server to access each account.
+Parameters:
+  Role:
+    Description: 'Specifies the role that can assume the SRA Verify MCP role.'
+    Type: String
+    Default: 'arn:aws:iam::012345678910:role/myrole'
+    ConstraintDescription: Enter the ARN of the role that should be allowed to assume the SRAMemberMCPRole.
+
+Resources:
+  SRAMemberMCPRole:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: Resource has an explicit name so SRAVerify can loop through and assume it in each account.
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: SRAMemberMCPRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref Role
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - !Ref SRAVerifyLeastPrivilege
+        - !Ref SRAVerifyCheckPermissions
+
+  SRAVerifyCheckPermissions:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: Resource has an explicit name for documentation.
+          - id: W13
+            reason: SRA Verify needs read only * resource to evaluate configuration against SRA best practices.
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: SRAVerifyMCPCheckPermissions
+      Description: Permissions for actions in check.py
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountPermissions
+            Effect: Allow
+            Action:
+              - account:GetAccountInformation
+            Resource: '*'
+
+  # This policy is automatically generated from generate_iam_policy.py by extracting the boto3 calls used.
+  SRAVerifyLeastPrivilege:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: Policy is automatically generated from generate_iam_policy.py
+          - id: W13
+            reason: SRA Verify needs read only * resource to evaluate configuration against SRA best practices.
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: SRAVerifyMCPLeastPrivilege
+      Description: Least privilege policy for SRA Verify tool
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccessanalyzerPermissions
+            Effect: Allow
+            Action:
+              - access-analyzer:GetAnalyzer
+              - access-analyzer:ListAnalyzers
+            Resource: '*'
+          - Sid: AccountPermissions
+            Effect: Allow
+            Action:
+              - account:GetAlternateContact
+            Resource: '*'
+          - Sid: AmplifyPermissions
+            Effect: Allow
+            Action:
+              - amplify:ListApps
+            Resource: '*'
+          - Sid: ApigatewayPermissions
+            Effect: Allow
+            Action:
+              - apigateway:GET
+            Resource: '*'
+          - Sid: ApprunnerPermissions
+            Effect: Allow
+            Action:
+              - apprunner:DescribeWebAclForService
+              - apprunner:ListServices
+            Resource: '*'
+          - Sid: AppsyncPermissions
+            Effect: Allow
+            Action:
+              - appsync:ListGraphqlApis
+            Resource: '*'
+          - Sid: AuditmanagerPermissions
+            Effect: Allow
+            Action:
+              - auditmanager:GetAccountStatus
+              - auditmanager:GetOrganizationAdminAccount
+            Resource: '*'
+          - Sid: CloudfrontPermissions
+            Effect: Allow
+            Action:
+              - cloudfront:GetDistributionConfig
+              - cloudfront:ListDistributions
+            Resource: '*'
+          - Sid: CloudtrailPermissions
+            Effect: Allow
+            Action:
+              - cloudtrail:DescribeTrails
+              - cloudtrail:GetTrailStatus
+            Resource: '*'
+          - Sid: CloudwatchPermissions
+            Effect: Allow
+            Action:
+              - cloudwatch:DescribeAlarmsForMetric
+            Resource: '*'
+          - Sid: CognitoIdpPermissions
+            Effect: Allow
+            Action:
+              - cognito-idp:GetWebAclForResource
+              - cognito-idp:ListUserPools
+            Resource: '*'
+          - Sid: ConfigPermissions
+            Effect: Allow
+            Action:
+              - config:DescribeConfigurationAggregatorSourcesStatus
+              - config:DescribeConfigurationAggregators
+              - config:DescribeConfigurationRecorderStatus
+              - config:DescribeConfigurationRecorders
+              - config:DescribeDeliveryChannelStatus
+              - config:DescribeDeliveryChannels
+            Resource: '*'
+          - Sid: Ec2Permissions
+            Effect: Allow
+            Action:
+              - ec2:DescribeVerifiedAccessInstances
+              - ec2:GetEbsEncryptionByDefault
+              - ec2:GetVerifiedAccessInstanceWebAcl
+            Resource: '*'
+          - Sid: Elbv2Permissions
+            Effect: Allow
+            Action:
+              - elasticloadbalancing:DescribeLoadBalancers
+            Resource: '*'
+          - Sid: FmsPermissions
+            Effect: Allow
+            Action:
+              - fms:GetAdminAccount
+              - fms:ListPolicies
+            Resource: '*'
+          - Sid: GuarddutyPermissions
+            Effect: Allow
+            Action:
+              - guardduty:DescribeOrganizationConfiguration
+              - guardduty:GetDetector
+              - guardduty:ListDetectors
+              - guardduty:ListOrganizationAdminAccounts
+            Resource: '*'
+          - Sid: IamPermissions
+            Effect: Allow
+            Action:
+              - iam:GetRole
+            Resource: '*'
+          - Sid: Inspector2Permissions
+            Effect: Allow
+            Action:
+              - inspector2:BatchGetAccountStatus
+              - inspector2:DescribeOrganizationConfiguration
+              - inspector2:GetDelegatedAdminAccount
+            Resource: '*'
+          - Sid: LambdaPermissions
+            Effect: Allow
+            Action:
+              - lambda:GetFunction
+            Resource: '*'
+          - Sid: Macie2Permissions
+            Effect: Allow
+            Action:
+              - macie2:DescribeOrganizationConfiguration
+              - macie2:GetAdministratorAccount
+              - macie2:GetClassificationExportConfiguration
+              - macie2:GetFindingsPublicationConfiguration
+              - macie2:ListMembers
+            Resource: '*'
+          - Sid: OrganizationsPermissions
+            Effect: Allow
+            Action:
+              - organizations:DescribeOrganization
+              - organizations:ListAccounts
+              - organizations:ListDelegatedAdministrators
+              - organizations:ListAccountsForParent
+              - organizations:ListOrganizationalUnitsForParent
+              - organizations:ListPolicies
+              - organizations:ListRoots
+            Resource: '*'
+          - Sid: S3Permissions
+            Effect: Allow
+            Action:
+              - s3:GetAccountPublicAccessBlock
+              - s3:GetBucketLocation
+              - s3:GetBucketPolicy
+            Resource: '*'
+          - Sid: SecurityIRPermissions
+            Effect: Allow
+            Action:
+              - security-ir:BatchGetMemberAccountDetails
+              - security-ir:GetMembership
+              - security-ir:ListMemberships
+            Resource: '*'
+          - Sid: SecurityhubPermissions
+            Effect: Allow
+            Action:
+              - securityhub:DescribeOrganizationConfiguration
+              - securityhub:GetAdministratorAccount
+              - securityhub:GetEnabledStandards
+              - securityhub:ListEnabledProductsForImport
+              - securityhub:ListMembers
+              - securityhub:ListOrganizationAdminAccounts
+            Resource: '*'
+          - Sid: SecuritylakePermissions
+            Effect: Allow
+            Action:
+              - securitylake:GetDataLakeOrganizationConfiguration
+              - securitylake:GetDataLakeSources
+              - securitylake:ListDataLakes
+              - securitylake:ListLogSources
+              - securitylake:ListSubscribers
+            Resource: '*'
+          - Sid: ShieldPermissions
+            Effect: Allow
+            Action:
+              - shield:DescribeDrtAccess
+              - shield:DescribeSubscription
+              - shield:GetSubscriptionState
+              - shield:ListProtections
+            Resource: '*'
+          - Sid: SqsPermissions
+            Effect: Allow
+            Action:
+              - sqs:GetQueueAttributes
+            Resource: '*'
+          - Sid: StsPermissions
+            Effect: Allow
+            Action:
+              - sts:GetCallerIdentity
+            Resource: '*'
+          - Sid: Wafv2Permissions
+            Effect: Allow
+            Action:
+              - wafv2:GetLoggingConfiguration
+              - wafv2:GetWebAcl
+              - wafv2:GetWebAclForResource
+              - wafv2:ListWebAcls
+            Resource: '*'

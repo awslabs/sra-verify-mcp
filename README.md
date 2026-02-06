@@ -391,10 +391,11 @@ The SRA Verify Power bundles the MCP server with onboarding workflows and steeri
 #### Install the Power
 
 1. Open Kiro IDE
-2. Open the Powers panel (choose the Powers icon in the sidebar or use the Command Palette: **Kiro: Open Powers**)
-3. Choose **Add Custom Power**.
-4. Choose **Import power from a folder**.
-5. Select /path/to/powers/sra-verify
+2. Before installing the power, update the `path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/` in mcp.json with the absolute path to your cloned repository.
+3. Open the Powers panel (choose the Powers icon in the sidebar or use the Command Palette: **Kiro: Open Powers**)
+4. Choose **Add Custom Power**.
+5. Choose **Import power from a folder**.
+6. Select /path/to/powers/sra-verify
 
 #### Configure Your AWS Profile
 

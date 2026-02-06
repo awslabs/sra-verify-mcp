@@ -4,7 +4,7 @@
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/schiefj/code/wwps-security-developer/sraverify/sra-verify-mcp/awslabs/sraverify_mcp_server/",
+        "path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/",
         "run",
         "server.py"
       ],

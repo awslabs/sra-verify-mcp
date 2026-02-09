@@ -6,6 +6,8 @@ Assess your AWS environment against security best practices using the [AWS Secur
 
 [SRA Verify](https://github.com/awslabs/sra-verify) validates that native AWS security services are properly configured at scale across your AWS Organization. It checks multiple account types — management, audit, log-archive, and application — and returns detailed pass/fail findings for each security control.
 
+> Security and Compliance is a shared responsibility between AWS and the customer. SRA Verify and the SRA Verify MCP server may help a customer implement controls and best practices on the customer side of the shared responsibility model. Visit the [Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/) to learn more.
+
 ### MCP Tools
 
 | Tool                          | Description                                                                            |
@@ -18,7 +20,9 @@ Assess your AWS environment against security best practices using the [AWS Secur
 
 ### Supported Services
 
-The server covers a wide range of AWS security services including: Access Analyzer, Audit Manager, CloudTrail, CloudWatch, Config, GuardDuty, IAM, Inspector, Macie, Organizations, S3, Security Hub, Security Lake, Shield, WAF, and more. Review the full [list of checks](https://github.com/awslabs/sra-verify/blob/main/docs/checks.txt) on the SRA Verify Github.
+SRA Verify covers a wide range of AWS security services including: Access Analyzer, Audit Manager, CloudTrail, CloudWatch, Config, GuardDuty, IAM, Inspector, Macie, Organizations, S3, Security Hub, Security Lake, Shield, WAF, and more. Review the full [list of checks](https://github.com/awslabs/sra-verify/blob/main/docs/checks.txt) on the SRA Verify Github.
+
+> Note: SRA Verify contains checks for several services, but may not contain a check for every consideration of the AWS Security Reference Architecture. Review the [AWS Prescriptive Guidance](https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/welcome.html) for more information on AWS Security Reference Architecture.
 
 ## Prerequisites
 

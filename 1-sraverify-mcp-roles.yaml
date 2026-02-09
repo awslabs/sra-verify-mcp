@@ -4,7 +4,7 @@ Parameters:
   Role:
     Description: 'Specifies the role that can assume the SRA Verify MCP role.'
     Type: String
-    Default: 'arn:aws:iam::012345678910:role/myrole'
+    Default: 'arn:aws:iam::123456789012:role/myrole'
     ConstraintDescription: Enter the ARN of the role that should be allowed to assume the SRAMemberMCPRole.
 
 Resources:

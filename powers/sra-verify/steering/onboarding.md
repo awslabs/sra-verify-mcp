@@ -552,10 +552,10 @@ Management Account:
 - Production-Management (123456789012)
 
 Member Accounts:
-- Security-Audit (234567890123)
-- Log-Archive (345678901234)
-- App-Production (456789012345)
-- App-Development (567890123456)
+- Security-Audit (111122223333)
+- Log-Archive (444455556666)
+- App-Production (333333333333)
+- App-Development (888888888888)
 
 I see accounts named 'Security-Audit' and 'Log-Archive'. Are these your audit and log archive accounts?"
 
@@ -582,8 +582,8 @@ I see accounts named 'Security-Audit' and 'Log-Archive'. Are these your audit an
 **Agent:** "Perfect! Let me confirm your configuration:
 
 Management Account ID: 123456789012
-Audit Account ID: 234567890123
-Log Archive Account ID: 345678901234
+Audit Account ID: 111122223333
+Log Archive Account ID: 444455556666
 AWS Profile Name: default
 Cross-Account Role ARN: arn:aws:iam::123456789012:role/SRAVerifyRole
 Primary Regions: us-east-1, us-west-2
@@ -622,11 +622,11 @@ Your AWS environment details have been saved to .kiro/steering/sra-verify-enviro
 
 **Agent:** "Got it. What is your audit/security account ID where centralized security tooling runs?"
 
-**User:** "234567890123"
+**User:** "111122223333"
 
 **Agent:** "Perfect. And your log archive account ID where CloudTrail logs are centralized?"
 
-**User:** "345678901234"
+**User:** "444455556666"
 
 **Agent:** "Great. What AWS CLI profile should SRA Verify use to authenticate? I'll configure this in your MCP settings."
 
@@ -643,8 +643,8 @@ Your AWS environment details have been saved to .kiro/steering/sra-verify-enviro
 **Agent:** "Perfect! Let me confirm your configuration:
 
 Management Account ID: 123456789012
-Audit Account ID: 234567890123
-Log Archive Account ID: 345678901234
+Audit Account ID: 111122223333
+Log Archive Account ID: 444455556666
 AWS Profile Name: production
 Cross-Account Role ARN: arn:aws:iam::123456789012:role/SRAVerifyRole
 Primary Regions: us-east-1, us-west-2
@@ -678,7 +678,7 @@ Your AWS environment details have been saved to .kiro/steering/sra-verify-enviro
 **Agent:** *Runs `aws sts get-caller-identity`* - Success
 *Runs `aws organizations describe-organization`* - AccessDeniedException
 
-"I can see you're currently in account 456789012345, but I don't have permissions to access AWS Organizations. This likely means you're in a member account without cross-account Organizations access.
+"I can see you're currently in account 333333333333, but I don't have permissions to access AWS Organizations. This likely means you're in a member account without cross-account Organizations access.
 
 Would you like to:
 1. Provide the management account ID manually

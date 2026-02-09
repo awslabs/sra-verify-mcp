@@ -106,7 +106,7 @@ Update "/path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/" with the absolute
 To invoke the agent, include `--agent sra` when starting a new chat.
 
 ```bash
-kiro chat --agent sra
+kiro-cli chat --agent sra
 ```
 
 ## Usage Examples

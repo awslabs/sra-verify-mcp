@@ -48,7 +48,7 @@ The onboarding workflow will:
 
 SRA Verify helps you validate AWS Security Reference Architecture (SRA) implementations across your AWS organization. It provides automated security checks to ensure native AWS security services are properly configured at scale, covering multiple account types (management, audit, log-archive, and application accounts).
 
-The power enables you to run targeted checks by service (GuardDuty, CloudTrail, IAM, etc.) or account type, helping you maintain continuous compliance, troubleshoot security gaps, and prepare for audits. Each check validates specific security controls and provides detailed findings with pass/fail status.
+The power enables you to run targeted checks by service (GuardDuty, CloudTrail, IAM, etc.) or account type, helping you validate security controls, troubleshoot security gaps, and prepare for audits. Each check validates specific security controls and provides detailed findings with pass/fail status.
 
 Whether you're validating a fresh SRA deployment, monitoring for configuration drift, or preparing for a security audit, SRA Verify gives you the tools to assess and verify your AWS security posture against established best practices.
 
@@ -209,7 +209,7 @@ After deploying SRA solutions, verify correct configuration across all account t
 4. Application account checks (security services enabled)
 ```
 
-### Workflow 4: Continuous Compliance Monitoring
+### Workflow 4: Periodic Compliance Monitoring
 
 Run periodic checks to detect configuration drift from SRA standards.
 
@@ -333,12 +333,12 @@ When security alerts aren't appearing or services seem misconfigured, use checks
 
 2. Check the server path exists:
    ```bash
-   ls -la /Users/schiefj/code/wwps-security-developer/sraverify/sra-verify-mcp/awslabs/sraverify_mcp_server/
+   ls -la /path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/
    ```
 
 3. Test server manually:
    ```bash
-   cd /Users/schiefj/code/wwps-security-developer/sraverify/sra-verify-mcp/awslabs/sraverify_mcp_server/
+   cd /path/to/sraverify/sra-verify-mcp/awslabs/sraverify_mcp_server/
    uv run server.py
    ```
 

@@ -39,6 +39,7 @@ from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any, Optional
 import boto3
 from sraverify import SRAVerify
+from sraverify.core.check import SecurityCheck
 
 # CRITICAL: Reconfigure sraverify logger AFTER import to suppress all output
 # The sraverify logger is configured at import time, so we need to override it
@@ -89,6 +90,26 @@ def _get_sra_instance(role_arn: Optional[str] = None, region: Optional[str] = No
     regions_list = [region] if region else None
     return SRAVerify(session=session, regions=regions_list, debug=False)
 
+def _clear_sra_caches():
+    """Clear all class-level caches so re-runs fetch fresh data from AWS.
+
+    Temporary workaround until ScanContext refactor is complete.
+    Walks all SecurityCheck subclasses and clears any class-level
+    dict or resets None-type cache attributes.
+    """
+    def _clear_class_caches(klass):
+        for attr_name, attr_value in list(vars(klass).items()):
+            if attr_name.startswith('__'):
+                continue
+            if attr_name.startswith('_') and isinstance(attr_value, dict):
+                attr_value.clear()
+            elif attr_name.startswith('_') and attr_value is None:
+                setattr(klass, attr_name, None)
+        for subclass in klass.__subclasses__():
+            _clear_class_caches(subclass)
+
+    _clear_class_caches(SecurityCheck)
+
 mcp = FastMCP(
     'awslabs.sraverify-mcp-server',
     instructions=(
@@ -125,6 +146,7 @@ async def list_checks_by_account_type(account_type: str = 'all') -> Dict[str, Di
     checks = _default_sra.get_available_checks(account_type)
     return checks
 
+@mcp.tool(name='list_services')
 async def list_services() -> Dict[str, Any]:
     """Get all services supported by SRA Verify.
 
@@ -230,6 +252,9 @@ async def run_check(
         }
 
     try:
+        # Clear class-level caches so re-runs get fresh data
+        _clear_sra_caches()
+
         # Get SRAVerify instance with optional role and region
         sra_instance = _get_sra_instance(role_arn=role_arn, region=region)
 

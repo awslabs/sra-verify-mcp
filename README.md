@@ -1,10 +1,10 @@
 # AWS SRA Verify MCP Server
 
-Assess your AWS environment against security best practices using the [AWS Security Reference Architecture (SRA)](https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/welcome.html). This MCP server provides automated checks for GuardDuty, CloudTrail, IAM, SecurityHub, and other critical AWS security services across your organization's accounts.
+An MCP server for [SRA Verify](https://github.com/awslabs/sra-verify), a tool that assesses your AWS environment against the [AWS Security Reference Architecture (SRA)](https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/welcome.html). It uses SRA Verify security checks as MCP tools, letting AI agents discover, describe, and run best practice checks for services like GuardDuty, CloudTrail, IAM, and Security Hub across your Organization's accounts.
 
 ## What It Does
 
-[SRA Verify](https://github.com/awslabs/sra-verify) validates that native AWS security services are properly configured at scale across your AWS Organization. It checks multiple account types — management, audit, log-archive, and application — and returns detailed pass/fail findings for each security control.
+[SRA Verify](https://github.com/awslabs/sra-verify) validates that native AWS security services are properly configured at scale across your AWS Organization. It checks multiple account types - management, audit, log-archive, and application and returns detailed pass/fail findings for each security control.
 
 > Security and Compliance is a shared responsibility between AWS and the customer. SRA Verify and the SRA Verify MCP server may help a customer implement controls and best practices on the customer side of the shared responsibility model. Visit the [Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/) to learn more.
 

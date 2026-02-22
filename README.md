@@ -487,4 +487,4 @@ Think about how you can use this with your other MCP servers and workflows.
 
 - Add ticket system MCP to automatically create tickets for failed findings.
 - Use the [AWS MCP Server](https://docs.aws.amazon.com/aws-mcp/latest/userguide/what-is-mcp-server.html) to reference AWS documentation and make AWS API calls
-- Ask for remediation guidance, code samples, CloudFromation templates to fix failed findings.
+- Ask for remediation guidance, code samples, CloudFormation templates to fix failed findings.

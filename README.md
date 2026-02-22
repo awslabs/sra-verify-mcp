@@ -130,26 +130,27 @@ Running tool list_checks_by_account_type with the param (from mcp server: awslab
  ⋮  }
  - Completed in 0.16s
 
-> Based on the available checks, SRA Verify can assess security compliance for the following 27 AWS services:
+> SRA Verify can check the following 17 AWS services:
 
-1. IAM Access Analyzer - External access analysis and organization-wide zone of trust monitoring
-2. Account - Alternate contact configuration (security, billing, operations)
-3. AuditManager - Continuous audit and compliance assessment
-4. CloudTrail - Organization trail configuration, logging, and encryption
-5. Config - Configuration recording, aggregation, and compliance tracking
-6. EC2 - EBS encryption by default
-7. FirewallManager - Centralized firewall policy management across security groups, WAF, Shield, Network Firewall, and
-DNS Firewall
-8. GuardDuty - Threat detection across multiple data sources (DNS, VPC Flow, S3, EKS, RDS, Lambda, EC2)
-9. Inspector - Vulnerability scanning for EC2, ECR, and Lambda
-10. Macie - Sensitive data discovery and classification in S3
-11. S3 - Public access block settings
-12. SecurityHub - Central security posture management and standards compliance
-13. SecurityIncidentResponse - Incident response service configuration and coverage
-14. SecurityLake - Centralized security data lake with multiple log sources
-15. Shield - DDoS protection configuration and resource coverage
-16. WAF - Web application firewall associations across CloudFront, ALB, API Gateway, AppSync, Cognito, App Runner,
-Verified Access, and Amplify
+1. Account
+2. AuditManager
+3. CloudTrail
+4. Config
+5. EC2
+6. FirewallManager
+7. GuardDuty
+8. IAM Access Analyzer
+9. Inspector
+10. Macie
+11. Organizations
+12. S3
+13. SecurityHub
+14. SecurityIncidentResponse
+15. SecurityLake
+16. Shield
+17. WAF
+
+Would you like to see the available checks for any specific service?
 ```
 
 ```bash

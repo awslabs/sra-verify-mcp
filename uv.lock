@@ -44,37 +44,6 @@ wheels = [
 ]
 
 [[package]]
-name = "awslabs-sraverify-mcp-server"
-version = "0.0.1"
-source = { editable = "." }
-dependencies = [
-    { name = "boto3" },
-    { name = "loguru" },
-    { name = "mcp", extra = ["cli"] },
-    { name = "sraverify" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "boto3", specifier = ">=1.26.0" },
-    { name = "loguru", specifier = ">=0.7.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
-    { name = "sraverify", specifier = ">=0.1.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.398" },
-    { name = "ruff", specifier = ">=0.9.7" },
-]
-
-[[package]]
 name = "boto3"
 version = "1.42.54"
 source = { registry = "https://pypi.org/simple" }
@@ -910,6 +879,37 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/76/48/1a1eceacccad50f26d670d4fd8c1166adaa90a32c110a8d3a8659e8cd41f/sraverify-0.1.3.tar.gz", hash = "sha256:93526d832fed0c6415756a53af63d83999f265886b182b7c3c86c9623415ca40", size = 137692, upload-time = "2026-02-06T00:26:28.425Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7a/ed/bc3aea38534d5a335bf1bc19c0e3636b990c62c087c53ac60e613adb3739/sraverify-0.1.3-py3-none-any.whl", hash = "sha256:5f188c7b630bca140e3fe31f727b07387920f4b206a58cba31a53fe011bb94e7", size = 355764, upload-time = "2026-02-06T00:26:27.303Z" },
+]
+
+[[package]]
+name = "sraverify-mcp"
+version = "0.0.1"
+source = { editable = "." }
+dependencies = [
+    { name = "boto3" },
+    { name = "loguru" },
+    { name = "mcp", extra = ["cli"] },
+    { name = "sraverify" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.26.0" },
+    { name = "loguru", specifier = ">=0.7.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
+    { name = "sraverify", specifier = ">=0.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.398" },
+    { name = "ruff", specifier = ">=0.9.7" },
 ]
 
 [[package]]

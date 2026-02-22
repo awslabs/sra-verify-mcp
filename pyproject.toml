@@ -1,5 +1,5 @@
 [project]
-name = "awslabs.sraverify-mcp-server"
+name = "sraverify-mcp"
 
 # NOTE: "Patch"=9223372036854775807 bumps next release to zero.
 version = "0.0.1"
@@ -34,7 +34,7 @@ classifiers = [
 homepage = "https://github.com/awslabs/sra-verify-mcp"
 
 [project.scripts]
-"awslabs.sraverify-mcp-server" = "awslabs.sraverify_mcp_server.server:main"
+"sraverify-mcp" = "awslabs.sraverify_mcp_server.server:main"
 
 [dependency-groups]
 dev = [

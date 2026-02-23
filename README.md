@@ -68,7 +68,7 @@ Open Kiro or VS Code to create a new agent configuration file.
 kiro ~/.kiro/agents/sra.json
 ```
 
-Enter the following example configuration file
+Enter the following example configuration file. Update "/path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/" with the absolute path to your cloned repository.
 ```json
 {
   "name": "sra",
@@ -105,7 +105,39 @@ Enter the following example configuration file
 }
 ```
 
-Update "/path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/" with the absolute path to your cloned repository. You can update `my-profile` with the AWS CLI profile that has permissions to assume the `SRAMemberMCPRole`, or remove it to use your default AWS credentials.
+Alternatively, you can run directly with uvx.
+```json
+{
+  "name": "sra",
+  "description": "AWS Security Reference Architecture compliance checker",
+  "prompt": "You are an AWS security expert specializing in SRA compliance validation. Use the SRA Verify MCP tools to help users assess their AWS environment against security best practices. When users ask about security checks, proactively discover available checks, explain what they validate, and run them with the appropriate account IDs and parameters. Always provide clear summaries of findings with actionable recommendations.",
+  "mcpServers": {
+    "awslabs.sraverify-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "sraverify-mcp"
+      ],
+      "disabled": false,
+    }
+  },
+  "tools": [
+    "*"
+  ],
+  "toolAliases": {},
+  "allowedTools": [
+    "@awslabs.sraverify-mcp-server/list*",
+    "@awslabs.sraverify-mcp-server/describe*"
+  ],
+  "resources": [],
+  "hooks": {},
+  "toolsSettings": {},
+  "useLegacyMcpJson": true,
+  "model": null
+}
+```
+
+
+You can update `my-profile` with the AWS CLI profile that has permissions to assume the `SRAMemberMCPRole`, or remove it to use your default AWS credentials.
 
 To invoke the agent, include `--agent sra` when starting a new chat.
 

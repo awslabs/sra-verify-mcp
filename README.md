@@ -117,7 +117,7 @@ Alternatively, you can run directly with uvx.
       "args": [
         "sraverify-mcp"
       ],
-      "disabled": false,
+      "disabled": false
     }
   },
   "tools": [

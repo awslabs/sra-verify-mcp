@@ -38,7 +38,6 @@ from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any, Optional
 import boto3
 from sraverify import SRAVerify
-from sraverify.core.check import SecurityCheck
 
 # CRITICAL: Reconfigure sraverify logger AFTER import to suppress all output
 # The sraverify logger is configured at import time, so we need to override it
@@ -52,17 +51,41 @@ sraverify_logger.propagate = False
 # Global instance for read-only operations (listing checks, services, etc.)
 _default_sra = SRAVerify(debug=False)
 
-def _get_sra_instance(role_arn: Optional[str] = None, region: Optional[str] = None) -> SRAVerify:
+def _get_sra_instance(
+    role_arn: Optional[str] = None,
+    region: Optional[str] = None,
+    connect_timeout: float | None = None,
+    read_timeout: float | None = None,
+    max_attempts: int | None = None,
+    max_pool_connections: int | None = None,
+) -> SRAVerify:
     """Create an SRAVerify instance with optional role assumption and region.
 
     Args:
         role_arn: Optional IAM role ARN to assume
         region: Optional AWS region to use
+        connect_timeout: Optional boto3 connect timeout (seconds) forwarded to
+            ``SRAVerify``. ``None`` uses the library's default Client_Config.
+        read_timeout: Optional boto3 read timeout (seconds) forwarded to
+            ``SRAVerify``. ``None`` uses the library's default Client_Config.
+        max_attempts: Optional boto3 retry max attempts forwarded to
+            ``SRAVerify``. ``None`` uses the library's default Client_Config.
+        max_pool_connections: Optional boto3 max pool connections forwarded to
+            ``SRAVerify``. ``None`` uses the library's default Client_Config.
 
     Returns:
-        SRAVerify instance configured with the specified credentials and region
+        SRAVerify instance configured with the specified credentials, region,
+        and optional Client_Config overrides.
     """
-    if not role_arn and not region:
+    timeout_kwargs = {
+        'connect_timeout': connect_timeout,
+        'read_timeout': read_timeout,
+        'max_attempts': max_attempts,
+        'max_pool_connections': max_pool_connections,
+    }
+    has_timeout_overrides = any(v is not None for v in timeout_kwargs.values())
+
+    if not role_arn and not region and not has_timeout_overrides:
         return _default_sra
 
     # Create session with assumed role if specified
@@ -87,27 +110,12 @@ def _get_sra_instance(role_arn: Optional[str] = None, region: Optional[str] = No
 
     # Create SRAVerify instance with the session
     regions_list = [region] if region else None
-    return SRAVerify(session=session, regions=regions_list, debug=False)
-
-def _clear_sra_caches():
-    """Clear all class-level caches so re-runs fetch fresh data from AWS.
-
-    Temporary workaround until ScanContext refactor is complete.
-    Walks all SecurityCheck subclasses and clears any class-level
-    dict or resets None-type cache attributes.
-    """
-    def _clear_class_caches(klass):
-        for attr_name, attr_value in list(vars(klass).items()):
-            if attr_name.startswith('__'):
-                continue
-            if attr_name.startswith('_') and isinstance(attr_value, dict):
-                attr_value.clear()
-            elif attr_name.startswith('_') and attr_value is None:
-                setattr(klass, attr_name, None)
-        for subclass in klass.__subclasses__():
-            _clear_class_caches(subclass)
-
-    _clear_class_caches(SecurityCheck)
+    return SRAVerify(
+        session=session,
+        regions=regions_list,
+        debug=False,
+        **timeout_kwargs,
+    )
 
 mcp = FastMCP(
     'awslabs.sraverify-mcp-server',
@@ -210,6 +218,10 @@ async def run_check(
     log_archive_accounts: list[str] | None = None,
     role_arn: str | None = None,
     region: str | None = None,
+    connect_timeout: float | None = None,
+    read_timeout: float | None = None,
+    max_attempts: int | None = None,
+    max_pool_connections: int | None = None,
 ) -> dict[str, Any]:
     """Run a security check and return results.
 
@@ -219,6 +231,14 @@ async def run_check(
         log_archive_accounts: List of AWS accounts used for Logging (required for some checks)
         role_arn: Optional IAM role ARN to assume for running the check
         region: Optional AWS region to target (if not specified, checks all regions)
+        connect_timeout: Optional boto3 connect timeout in seconds. When omitted,
+            the library's default Client_Config value is used.
+        read_timeout: Optional boto3 read timeout in seconds. When omitted, the
+            library's default Client_Config value is used.
+        max_attempts: Optional boto3 retry max attempts. When omitted, the
+            library's default Client_Config value is used.
+        max_pool_connections: Optional boto3 max pool connections. When omitted,
+            the library's default Client_Config value is used.
 
     Returns:
         Dict with findings and summary, or error if check fails.
@@ -251,11 +271,17 @@ async def run_check(
         }
 
     try:
-        # Clear class-level caches so re-runs get fresh data
-        _clear_sra_caches()
-
-        # Get SRAVerify instance with optional role and region
-        sra_instance = _get_sra_instance(role_arn=role_arn, region=region)
+        # Get SRAVerify instance with optional role, region, and Client_Config overrides.
+        # Per-scan isolation is now provided by ScanContext, so cache clearing is
+        # no longer required between invocations.
+        sra_instance = _get_sra_instance(
+            role_arn=role_arn,
+            region=region,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            max_attempts=max_attempts,
+            max_pool_connections=max_pool_connections,
+        )
 
         findings = sra_instance.run_checks(
             check_id=check_id,

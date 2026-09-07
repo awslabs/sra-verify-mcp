@@ -2,7 +2,7 @@
 name = "sraverify-mcp"
 
 # NOTE: "Patch"=9223372036854775807 bumps next release to zero.
-version = "0.0.1"
+version = "0.0.2"
 
 description = "An AWS Labs Model Context Protocol (MCP) server for sraverify"
 readme = "README.md"
@@ -11,7 +11,7 @@ dependencies = [
     "boto3>=1.26.0",
     "loguru>=0.7.0",
     "mcp[cli]>=1.6.0",
-    "sraverify>=0.1.1",
+    "sraverify>=0.1.4",
 ]
 license = {text = "Apache-2.0"}
 license-files = ["LICENSE", "NOTICE" ]

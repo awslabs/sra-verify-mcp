@@ -83,7 +83,8 @@ You'll provide these as parameters when running checks (see workflow examples be
 
 - **AWS Credentials**: Configured AWS credentials with appropriate permissions to read security service configurations
 - **AWS Organization**: Access to AWS Organizations with multiple account types (management, audit, log-archive, application)
-- **Python & uv**: The MCP server requires Python and the `uv` package manager
+- **Python 3.11+ and uv**: The MCP server requires Python 3.11 or later and the `uv` package manager
+- **AWS Region**: `AWS_DEFAULT_REGION` in the MCP server's `env` (or a `region` in the AWS profile) sets the AWS partition. Without one, pass `region` or `regions` on every scan
 - **SRA Knowledge**: Familiarity with AWS Security Reference Architecture concepts and account types
 
 ### Installation
@@ -151,7 +152,9 @@ Execute specific checks to validate security controls.
 **Get Check Details:**
 ```
 Use describe_check tool with check_id (e.g., "SRA-GUARDDUTY-01")
-Returns: name, service, account_type, description, severity
+Returns: name, service, account_type, description, severity, check_logic, resource_type,
+remediation (text, cli, console), sra_sections, additional_urls,
+requires_audit_accounts, requires_log_archive_accounts
 ```
 
 **Run a Single Check:**
@@ -161,21 +164,37 @@ Use run_check tool with:
 - audit_accounts: List of audit account IDs (required for some checks)
 - log_archive_accounts: List of log archive account IDs (required for some checks)
 - role_arn: Optional IAM role to assume
-- region: Optional specific region (defaults to all regions)
+- region: Optional single Region, or "all". Omitted or "all" scans all enabled Regions,
+  which works only when the server env sets AWS_DEFAULT_REGION or the AWS profile sets a region
+- regions: Optional list of Regions, merged with region. The first value sets the partition
 ```
 
 **Example - Validate GuardDuty Configuration:**
 ```
 1. Describe check: describe_check with check_id="SRA-GUARDDUTY-01"
 2. Run check: run_check with check_id="SRA-GUARDDUTY-01",
-   audit_accounts=["123456789012"]
+   audit_accounts=["123456789012"], region="us-east-1"
 3. Review findings and summary in results
 ```
 
+**Run a Whole Service:**
+```
+Use run_checks tool with:
+  service="GuardDuty"
+  audit_accounts=["123456789012"]
+  role_arn="arn:aws:iam::123456789012:role/SRAMemberMCPRole"
+  regions=["us-east-1", "us-west-2"]
+Returns: summary, per_check counts, and the FAIL/ERROR findings (up to 50 by default)
+```
+
 **Common Errors:**
-- **Error: "Missing required parameter: audit_accounts"**
-  - Cause: Check requires audit account IDs but none provided
+- **Error: "This check (SRA-…) requires audit_accounts parameter. Please ask the user for their audit account ID(s) and retry with audit_accounts=["account-id"]."**
+  - Cause: Check requires audit account IDs but none provided (`run_checks` returns "The selected checks require audit_accounts…" with the list of checks that need it)
   - Solution: Add audit_accounts parameter with list of account IDs
+
+- **Error: "No AWS Region could be determined, so the AWS partition is unknown…"**
+  - Cause: No `region`/`regions` argument, and neither `AWS_DEFAULT_REGION` nor the AWS profile supplies a Region
+  - Solution: Pass `region="us-east-1"` (or a `regions` list), or set `AWS_DEFAULT_REGION` in the MCP server's `env`
 
 - **Error: "Access Denied"**
   - Cause: Insufficient AWS permissions
@@ -220,7 +239,7 @@ Run periodic checks to detect configuration drift from SRA standards.
 4. **Alert on failures** for immediate remediation
 
 **Key Checks for Monitoring:**
-- Security services remain enabled (GuardDuty, SecurityHub, etc.)
+- Security services remain enabled (GuardDuty, Security Hub, etc.)
 - Logging configurations haven't changed
 - WAF rules remain in block mode
 - Shield Advanced protections are active
@@ -238,7 +257,7 @@ Generate comprehensive evidence of security control implementation before audits
 **Audit Preparation Steps:**
 1. **Run all checks** across all account types
    - Use list_checks_by_account_type with "all"
-   - Execute each check systematically
+   - Use run_checks per service or account type (with include_status=["PASS", "FAIL", "ERROR"] to keep passing evidence)
 
 2. **Document findings:**
    - Passing checks demonstrate implemented controls
@@ -281,8 +300,9 @@ When security alerts aren't appearing or services seem misconfigured, use checks
 **list_checks_by_service**
 - Get all checks for a specific AWS service
 - Parameters:
-  - `service` (required): Service name (e.g., "GuardDuty", "CloudTrail", "IAM")
+  - `service` (required): Service name (e.g., "GuardDuty", "CloudTrail", "IAM"), or "all". Matching ignores case and surrounding spaces
 - Returns: Dictionary mapping check IDs to check information
+- Unknown service: returns `error` ("No checks found for service '…'.") and `available_services`. For the pre-0.3.2 name "SecurityHub" it also returns a `hint`: the service is now "Security Hub" and "Security Hub CSPM"
 
 **list_checks_by_account_type**
 - Get all checks filtered by AWS account type
@@ -299,7 +319,8 @@ When security alerts aren't appearing or services seem misconfigured, use checks
 - Get detailed information about a specific check
 - Parameters:
   - `check_id` (required): Check ID (e.g., "SRA-GUARDDUTY-01")
-- Returns: Check details including name, service, account_type, description, severity
+- Returns: `check_id`, `name`, `service`, `account_type`, `description`, `severity`, `check_logic`, `resource_type`, `remediation` (`text`, `cli`, `console`), `sra_sections`, `additional_urls`, and `requires_audit_accounts` / `requires_log_archive_accounts` (whether `run_check` needs those lists)
+- Unknown check: returns `error` ("Check … not found"), `available_checks_count` and `suggestions`
 
 ### Execution Tools
 
@@ -309,9 +330,28 @@ When security alerts aren't appearing or services seem misconfigured, use checks
   - `check_id` (required): Check ID to run
   - `audit_accounts` (optional): List of audit account IDs (required for some checks)
   - `log_archive_accounts` (optional): List of log archive account IDs (required for some checks)
-  - `role_arn` (optional): IAM role ARN to assume for running the check
-  - `region` (optional): AWS region to target (if not specified, checks all regions)
-- Returns: Dictionary with findings and summary, or error if check fails
+  - `role_arn` (optional): IAM role ARN to assume for running the check. It is assumed in the first Region given, or in the server's default Region
+  - `region` (optional): One AWS Region, or "all". Omitted or "all" scans all enabled Regions, which needs `AWS_DEFAULT_REGION` in the server env or a region in the AWS profile
+  - `regions` (optional): List of AWS Regions, merged with `region`. The first value sets the partition
+  - `connect_timeout`, `read_timeout`, `max_attempts`, `max_pool_connections` (optional): boto3 client overrides; omitted values keep the library defaults
+- Returns: `status` ("completed"), `check_id`, `findings`, `summary` (`total`, `passed`, `failed`, `errors`), `role_arn`, `region`, `regions` (normalized list, or null for all enabled Regions) and `scan_region` (the Region that set the partition)
+- On failure: `status` ("failed") and `error`, plus `suggestions` for an unknown check ID or `check_info` when an account list is missing
+
+**run_checks**
+- Execute every check for a service and/or account type in one scan. Prefer it over many `run_check` calls
+- Parameters:
+  - `service` (optional): Service name from `list_services`. Omitted or "all" runs every service
+  - `account_type` (optional, default="all"): "application", "audit", "log-archive", "management" or "all"
+  - `audit_accounts` (optional): List of audit account IDs (required when any selected check needs it)
+  - `log_archive_accounts` (optional): List of log archive account IDs (required when any selected check needs it)
+  - `role_arn` (optional): IAM role ARN to assume for running the checks
+  - `region` (optional): One AWS Region, or "all" (same rules as `run_check`)
+  - `regions` (optional): List of AWS Regions, merged with `region`
+  - `include_status` (optional, default=["FAIL", "ERROR"]): Finding statuses to return (PASS, FAIL, ERROR). Summary counts always cover every finding
+  - `max_findings` (optional, default=50): Maximum number of findings to return (0 or greater)
+  - `connect_timeout`, `read_timeout`, `max_attempts`, `max_pool_connections` (optional): boto3 client overrides
+- Returns: `status` ("completed"), `service`, `account_type`, `checks_run`, `summary` (`checks`, `total`, `passed`, `failed`, `errors`), `per_check` (counts per check ID), `findings`, `findings_filter` (`include_status`, `max_findings`, `matched`, `returned`, `truncated`), `role_arn`, `region`, `regions`, `scan_region`
+- On failure: `status` ("failed") and `error`. Missing account lists add `checks_requiring_audit_accounts` and/or `checks_requiring_log_archive_accounts`. A service or account type that matches nothing adds `available_services` and `valid_account_types`
 
 ## Troubleshooting
 
@@ -371,14 +411,15 @@ When security alerts aren't appearing or services seem misconfigured, use checks
 
 ### Missing Required Parameters
 
-**Problem:** Check fails with missing parameter error
+**Problem:** Check fails because an account list is missing
 
 **Symptoms:**
-- Error: "Missing required parameter: audit_accounts"
-- Error: "Missing required parameter: log_archive_accounts"
+- Error: "This check (SRA-…) requires audit_accounts parameter. Please ask the user for their audit account ID(s) and retry with audit_accounts=["account-id"]."
+- Error: "This check (SRA-…) requires log_archive_accounts parameter. Please ask the user for their log archive account ID(s) and retry with log_archive_accounts=["account-id"]."
+- `run_checks` error: "The selected checks require audit_accounts…", with `checks_requiring_audit_accounts` / `checks_requiring_log_archive_accounts`
 
 **Solutions:**
-1. Use describe_check to see what parameters are required
+1. Use describe_check and read `requires_audit_accounts` / `requires_log_archive_accounts`
 2. Provide audit_accounts parameter for checks that need audit account IDs
 3. Provide log_archive_accounts parameter for checks that need log archive account IDs
 
@@ -389,6 +430,30 @@ run_check with:
   audit_accounts=["123456789012", "234567890123"]
   log_archive_accounts=["345678901234"]
 ```
+
+### No AWS Region Could Be Determined
+
+**Problem:** `run_check` or `run_checks` returns `status` "failed" before scanning
+
+**Symptoms:**
+- Error: "No AWS Region could be determined, so the AWS partition is unknown. Pass the region argument (for example region="us-east-1") or a regions list, or set AWS_DEFAULT_REGION in the MCP server's env (or region = in the AWS profile it uses)."
+
+**Solutions:**
+1. Ask the user for a Region and retry with `region="us-east-1"` or `regions=[...]`
+2. For a lasting fix, set `AWS_DEFAULT_REGION` in the MCP server's `env` (see [MCP Config Placeholders](#mcp-config-placeholders)) or add `region` to the AWS profile
+
+### Finding Text Mentions CLI Flags
+
+**Problem:** A finding or remediation names an sraverify CLI flag, such as `--regions`
+
+**Solution:** Map the flag to the tool argument; never suggest running the CLI:
+- `--regions` → `region` / `regions`
+- `--audit-account` → `audit_accounts`
+- `--log-archive-account` → `log_archive_accounts`
+- `--role` → `role_arn`
+- `--check` → `check_id`
+- `--service` / `--account-type` → `run_checks` `service` / `account_type`
+- `--profile` → the `AWS_PROFILE` env in the user's MCP config
 
 ### Check Execution Failures
 
@@ -416,11 +481,13 @@ run_check with:
 
 **Solutions:**
 1. Verify resources are in the expected region
-2. Try specifying the region parameter explicitly:
+2. Try specifying the Regions explicitly:
    ```
    run_check with region="us-east-1"
+   run_check with regions=["us-east-1", "us-west-2"]
    ```
-3. Some checks run across all regions by default - ensure resources are deployed globally if expected
+3. Omitting `region` (or `region="all"`) scans all enabled Regions, but only when `AWS_DEFAULT_REGION` or the AWS profile supplies a Region. Check `regions` and `scan_region` in the response to see what was scanned
+4. For AWS GovCloud (US) or China, the first Region must come from that partition (for example `us-gov-west-1`), because it sets the partition and the Region the role is assumed in
 
 ## Best Practices
 
@@ -441,21 +508,24 @@ run_check with:
 
 **Optional Configuration:**
 - Set AWS_PROFILE environment variable to use a specific AWS credential profile
+- Set AWS_DEFAULT_REGION in the MCP server's env to set the AWS partition and allow all-Region scans
 - Configure role_arn parameter when running checks to assume a specific IAM role
-- Specify region parameter to target specific AWS regions
+- Specify region or regions parameters to target specific AWS Regions
 
 ## MCP Config Placeholders
 
-**IMPORTANT:** Before using this power, replace the following placeholder in `mcp.json` with your actual value:
+**IMPORTANT:** Before using this power, replace the following placeholders in `mcp.json` with your actual values:
 
-- **`PLACEHOLDER_SRA_VERIFY_PATH`**: Path to your SRA Verify MCP server installation directory.
+- **`path/to/sra-verify-mcp/awslabs/sraverify_mcp_server/`**: Path to your SRA Verify MCP server installation directory.
   - **How to get it:**
     1. Clone or locate the SRA Verify MCP server repository on your system
     2. Navigate to the server directory: `awslabs/sraverify_mcp_server/`
     3. Use the full absolute path to this directory
     4. Example: `/Users/yourname/code/sra-verify-mcp/awslabs/sraverify_mcp_server/`
+- **`SRA_VERIFY_MCP_PROFILE_NAME`** (`AWS_PROFILE`): The AWS CLI profile the server authenticates with. It needs permission to assume the cross-account role.
+- **`SRA_VERIFY_MCP_REGION`** (`AWS_DEFAULT_REGION`): Your home Region (for example `us-east-1`). It sets the AWS partition and lets scans without a `region` cover all enabled Regions.
 
-**After replacing the placeholder, your mcp.json should look like:**
+**After replacing the placeholders, your mcp.json should look like:**
 ```json
 {
   "mcpServers": {
@@ -467,7 +537,11 @@ run_check with:
         "run",
         "server.py"
       ],
-      "disabled": false
+      "disabled": false,
+      "env": {
+        "AWS_PROFILE": "my-profile",
+        "AWS_DEFAULT_REGION": "us-east-1"
+      }
     }
   }
 }
@@ -476,4 +550,4 @@ run_check with:
 ---
 
 **MCP Server:** awslabs.sraverify-mcp-server
-**Installation:** Requires Python, uv, and SRA Verify MCP server repository
+**Installation:** Requires Python 3.11+, uv, and SRA Verify MCP server repository

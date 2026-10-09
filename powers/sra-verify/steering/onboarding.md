@@ -124,7 +124,7 @@ This returns all accounts in the organization with their IDs, names, and status.
 2. **Audit Account ID**
    - Ask: "What is your audit/security account ID?"
    - Format: 12-digit AWS account ID
-   - Purpose: Required for checks that validate centralized security tooling (GuardDuty, SecurityHub, etc.)
+   - Purpose: Required for checks that validate centralized security tooling (GuardDuty, Security Hub, etc.)
 
 3. **Log Archive Account ID**
    - Ask: "What is your log archive account ID?"
@@ -156,6 +156,7 @@ This returns all accounts in the organization with their IDs, names, and status.
    - Ask: "What AWS regions do you primarily use? (e.g., us-east-1, us-west-2)"
    - Format: Comma-separated list of region codes
    - Purpose: Default regions to scan (can be overridden to scan all regions when needed)
+   - Home Region: the first primary Region becomes the MCP server's home Region (`AWS_DEFAULT_REGION` in Step 4). It sets the AWS partition and lets scans without a `region` cover all enabled Regions
    - Common examples: "us-east-1", "us-east-1,us-west-2", "us-east-1,eu-west-1,ap-southeast-1"
    - **Offer automatic discovery:** "Would you like me to detect which regions you're actively using by checking for resources?"
 
@@ -242,7 +243,7 @@ This file contains your AWS environment configuration for SRA Verify checks.
 ### Audit Account
 - **Account ID:** {audit_account_id}
 - **Purpose:** Centralized security tooling and findings
-- **Used for:** GuardDuty, SecurityHub, and other security service checks
+- **Used for:** GuardDuty, Security Hub, and other security service checks
 
 ### Log Archive Account
 - **Account ID:** {log_archive_account_id}
@@ -264,12 +265,12 @@ This file contains your AWS environment configuration for SRA Verify checks.
 {profile_name}
 ```
 
-**Environment Variable:** `AWS_PROFILE={profile_name}` (configured in powers/sra-verify/mcp.json)
+**Environment Variables:** `AWS_PROFILE={profile_name}` and `AWS_DEFAULT_REGION={first_region}` (configured in powers/sra-verify/mcp.json)
 
-**Purpose:** This AWS CLI profile is used to authenticate with AWS and assume roles into other accounts.
+**Purpose:** This AWS CLI profile is used to authenticate with AWS and assume roles into other accounts. The home Region sets the AWS partition.
 
 **Configuration:**
-- Configured in `powers/sra-verify/mcp.json` by replacing the placeholder "SRA_VERIFY_MCP_PROFILE_NAME" with your profile name
+- Configured in `powers/sra-verify/mcp.json` by replacing the placeholders "SRA_VERIFY_MCP_PROFILE_NAME" with your profile name and "SRA_VERIFY_MCP_REGION" with your first primary Region
 - Ensure this profile is configured in your `~/.aws/credentials` and `~/.aws/config` files
 
 ---
@@ -283,15 +284,7 @@ This file contains your AWS environment configuration for SRA Verify checks.
 
 **Purpose:** This role is assumed by SRA Verify to perform cross-account security checks.
 
-**Required Permissions:** The role should have read-only permissions for:
-- GuardDuty
-- SecurityHub
-- CloudTrail
-- IAM (read-only)
-- CloudWatch
-- Config
-- Organizations (if checking from management account)
-- Other AWS security services being validated
+**Required Permissions:** `1-sraverify-mcp-roles.yaml` in the sra-verify-mcp repository is the source of truth. It creates the `SRAMemberMCPRole` with the read-only permissions every SRA Verify check needs. Deploy it with a StackSet to member accounts and as a standalone stack in the management account, and redeploy it when you upgrade.
 
 **Trust Relationship:** The role should trust your default AWS credentials to assume it.
 
@@ -304,7 +297,7 @@ This file contains your AWS environment configuration for SRA Verify checks.
 {regions}
 ```
 
-These regions will be scanned by default. You can override this to scan all regions by specifying `region="all"` when running checks.
+Pass these regions to scan only your primary Regions, for example `regions=["{region_1}", "{region_2}"]`. Specifying `region="all"` (or omitting `region` and `regions`) scans all enabled Regions, because `AWS_DEFAULT_REGION` is set to `{first_region}` in the MCP configuration. The first Region in `regions` sets the AWS partition and the Region the role is assumed in.
 
 ---
 
@@ -350,6 +343,16 @@ Use run_check tool with:
   region="{first_region}"
 ```
 
+**Scan your primary regions:**
+```
+Use run_check tool with:
+  check_id="{check_id}"
+  audit_accounts=["{audit_account_id}"]
+  log_archive_accounts=["{log_archive_account_id}"]
+  role_arn="{role_arn}"
+  regions=["{region_1}", "{region_2}"]
+```
+
 **Scan all regions instead of primary regions:**
 ```
 Use run_check tool with:
@@ -358,6 +361,17 @@ Use run_check tool with:
   log_archive_accounts=["{log_archive_account_id}"]
   role_arn="{role_arn}"
   region="all"
+```
+
+**Run every check for a service in one scan:**
+```
+Use run_checks tool with:
+  service="GuardDuty"
+  audit_accounts=["{audit_account_id}"]
+  log_archive_accounts=["{log_archive_account_id}"]
+  role_arn="{role_arn}"
+  regions=["{region_1}", "{region_2}"]
+(Returns a summary, per-check counts and the FAIL/ERROR findings)
 ```
 
 ---
@@ -399,9 +413,9 @@ Refer to the main POWER.md documentation for detailed workflow examples.
 
 Tell the user:
 ```
-To use SRA Verify with your configured profile, you need to update the power's MCP configuration.
+To use SRA Verify with your configured profile and home Region, you need to update the power's MCP configuration.
 
-I'll update the mcp.json file in the sra-verify power to use your AWS profile: {profile_name}
+I'll update the mcp.json file in the sra-verify power to use your AWS profile: {profile_name}, and your home Region: {first_region}
 ```
 
 **Update the power's MCP configuration:**
@@ -409,6 +423,8 @@ I'll update the mcp.json file in the sra-verify power to use your AWS profile: {
 1. Open the file `powers/sra-verify/mcp.json`
 2. Find the placeholder text `SRA_VERIFY_MCP_PROFILE_NAME` in the `AWS_PROFILE` value
 3. Replace `SRA_VERIFY_MCP_PROFILE_NAME` with the actual profile name
+4. Find the placeholder text `SRA_VERIFY_MCP_REGION` in the `AWS_DEFAULT_REGION` value
+5. Replace `SRA_VERIFY_MCP_REGION` with the first primary Region
 
 **Example - Before:**
 ```json
@@ -416,20 +432,22 @@ I'll update the mcp.json file in the sra-verify power to use your AWS profile: {
   "mcpServers": {
     "awslabs.sraverify-mcp-server": {
       "env": {
-        "AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"
+        "AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME",
+        "AWS_DEFAULT_REGION": "SRA_VERIFY_MCP_REGION"
       }
     }
   }
 }
 ```
 
-**Example - After (if profile is "default"):**
+**Example - After (if profile is "default" and the first primary Region is "us-east-1"):**
 ```json
 {
   "mcpServers": {
     "awslabs.sraverify-mcp-server": {
       "env": {
-        "AWS_PROFILE": "default"
+        "AWS_PROFILE": "default",
+        "AWS_DEFAULT_REGION": "us-east-1"
       }
     }
   }
@@ -440,9 +458,9 @@ After updating, tell the user:
 ```
 ✅ MCP configuration updated!
 
-I've replaced "SRA_VERIFY_MCP_PROFILE_NAME" with "{profile_name}" in powers/sra-verify/mcp.json.
+I've replaced "SRA_VERIFY_MCP_PROFILE_NAME" with "{profile_name}" and "SRA_VERIFY_MCP_REGION" with "{first_region}" in powers/sra-verify/mcp.json.
 
-The SRA Verify MCP server will now use this profile to authenticate with AWS.
+The SRA Verify MCP server will now use this profile to authenticate with AWS, and {first_region} as its home Region.
 
 Note: The MCP server will automatically reconnect with the new configuration. If you need to manually reconnect, you can do so from the MCP Server view in the Kiro feature panel.
 ```
@@ -461,7 +479,7 @@ Your AWS environment details have been saved to:
 
 This file contains:
 - Your account IDs (management, audit, log-archive)
-- AWS profile name (configured in powers/sra-verify/mcp.json)
+- AWS profile name and home Region (configured in powers/sra-verify/mcp.json)
 - Cross-account role ARN
 - Primary regions to scan
 - Quick reference commands pre-filled with your configuration
@@ -512,10 +530,10 @@ Would you like to run your first check? I can help you:
 - **Make it actionable** - Include ready-to-use commands with their actual values
 
 ### MCP Configuration
-- **Update power's mcp.json** - Replace placeholder in `powers/sra-verify/mcp.json`
-- **Find the placeholder** - Look for `"AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"`
-- **Replace with actual profile** - Replace `SRA_VERIFY_MCP_PROFILE_NAME` with the profile name (keep the quotes)
-- **Example** - Change `"AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"` to `"AWS_PROFILE": "default"`
+- **Update power's mcp.json** - Replace both placeholders in `powers/sra-verify/mcp.json`
+- **Find the placeholders** - Look for `"AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"` and `"AWS_DEFAULT_REGION": "SRA_VERIFY_MCP_REGION"`
+- **Replace with actual values** - Replace `SRA_VERIFY_MCP_PROFILE_NAME` with the profile name and `SRA_VERIFY_MCP_REGION` with the first primary Region (keep the quotes)
+- **Example** - Change `"AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"` to `"AWS_PROFILE": "default"` and `"AWS_DEFAULT_REGION": "SRA_VERIFY_MCP_REGION"` to `"AWS_DEFAULT_REGION": "us-east-1"`
 - **Explain reconnection** - Tell users the MCP server will automatically reconnect
 
 ### After Creation
@@ -596,13 +614,13 @@ Is this correct?"
 
 "✅ Environment configuration created!
 
-Now I'll update the power's MCP configuration to use your AWS profile: default"
+Now I'll update the power's MCP configuration to use your AWS profile: default, and your home Region: us-east-1"
 
-**Agent:** *Opens powers/sra-verify/mcp.json and replaces "SRA_VERIFY_MCP_PROFILE_NAME" with "default"*
+**Agent:** *Opens powers/sra-verify/mcp.json and replaces "SRA_VERIFY_MCP_PROFILE_NAME" with "default" and "SRA_VERIFY_MCP_REGION" with "us-east-1"*
 
 "✅ MCP configuration updated!
 
-I've replaced "SRA_VERIFY_MCP_PROFILE_NAME" with "default" in powers/sra-verify/mcp.json. The SRA Verify MCP server will now use this profile to authenticate with AWS.
+I've replaced "SRA_VERIFY_MCP_PROFILE_NAME" with "default" and "SRA_VERIFY_MCP_REGION" with "us-east-1" in powers/sra-verify/mcp.json. The SRA Verify MCP server will now use this profile to authenticate with AWS, and us-east-1 as its home Region.
 
 Your AWS environment details have been saved to .kiro/steering/sra-verify-environment.md. Would you like to run your first check?"
 
@@ -657,13 +675,13 @@ Is this correct?"
 
 "✅ Environment configuration created!
 
-Now I'll update the power's MCP configuration to use your AWS profile: production"
+Now I'll update the power's MCP configuration to use your AWS profile: production, and your home Region: us-east-1"
 
-**Agent:** *Opens powers/sra-verify/mcp.json and replaces "SRA_VERIFY_MCP_PROFILE_NAME" with "production"*
+**Agent:** *Opens powers/sra-verify/mcp.json and replaces "SRA_VERIFY_MCP_PROFILE_NAME" with "production" and "SRA_VERIFY_MCP_REGION" with "us-east-1"*
 
 "✅ MCP configuration updated!
 
-I've replaced "SRA_VERIFY_MCP_PROFILE_NAME" with "production" in powers/sra-verify/mcp.json. The SRA Verify MCP server will now use this profile to authenticate with AWS.
+I've replaced "SRA_VERIFY_MCP_PROFILE_NAME" with "production" and "SRA_VERIFY_MCP_REGION" with "us-east-1" in powers/sra-verify/mcp.json. The SRA Verify MCP server will now use this profile to authenticate with AWS, and us-east-1 as its home Region.
 
 Your AWS environment details have been saved to .kiro/steering/sra-verify-environment.md. Would you like to run your first check?"
 

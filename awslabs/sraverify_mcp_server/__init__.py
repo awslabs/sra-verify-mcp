@@ -14,4 +14,5 @@
 
 """awslabs.sraverify-mcp-server"""
 
-__version__ = '0.0.1'
+# Single source of the package version: pyproject.toml's [tool.hatch.version] reads this line.
+__version__ = '0.1.0'

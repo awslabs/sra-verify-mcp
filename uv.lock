@@ -875,6 +875,7 @@ wheels = [
 name = "sraverify-mcp"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "boto3" },
     { name = "loguru" },
     { name = "mcp", extra = ["cli"] },
@@ -889,6 +890,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.9" },
     { name = "boto3", specifier = ">=1.43.96" },
     { name = "loguru", specifier = ">=0.7.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.3,<3" },

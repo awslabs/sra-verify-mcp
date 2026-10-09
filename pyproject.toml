@@ -6,6 +6,7 @@ description = "An AWS Labs Model Context Protocol (MCP) server for sraverify"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "anyio>=4.9",
     "boto3>=1.43.96",
     "loguru>=0.7.0",
     "mcp[cli]>=2.3,<3",

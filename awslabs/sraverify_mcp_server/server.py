@@ -30,8 +30,9 @@ logging.getLogger('sraverify').setLevel(logging.CRITICAL)
 
 # Import loguru and configure it
 from loguru import logger
+
 logger.remove()  # Remove default handler
-logger.add(sys.stderr, level="ERROR")  # Only log errors to stderr
+logger.add(sys.stderr, level='ERROR')  # Only log errors to stderr
 
 # Import MCP and other dependencies
 from mcp.server.fastmcp import FastMCP
@@ -50,6 +51,7 @@ sraverify_logger.propagate = False
 
 # Global instance for read-only operations (listing checks, services, etc.)
 _default_sra = SRAVerify(debug=False)
+
 
 def _get_sra_instance(
     role_arn: Optional[str] = None,
@@ -92,8 +94,7 @@ def _get_sra_instance(
     if role_arn:
         sts_client = boto3.client('sts')
         assumed_role = sts_client.assume_role(
-            RoleArn=role_arn,
-            RoleSessionName='sraverify-mcp-session'
+            RoleArn=role_arn, RoleSessionName='sraverify-mcp-session'
         )
         credentials = assumed_role['Credentials']
 
@@ -101,7 +102,7 @@ def _get_sra_instance(
             aws_access_key_id=credentials['AccessKeyId'],
             aws_secret_access_key=credentials['SecretAccessKey'],
             aws_session_token=credentials['SessionToken'],
-            region_name=region
+            region_name=region,
         )
     elif region:
         session = boto3.Session(region_name=region)
@@ -116,6 +117,7 @@ def _get_sra_instance(
         debug=False,
         **timeout_kwargs,
     )
+
 
 mcp = FastMCP(
     'awslabs.sraverify-mcp-server',
@@ -140,6 +142,7 @@ mcp = FastMCP(
     dependencies=['pydantic', 'loguru', 'boto3'],
 )
 
+
 @mcp.tool(name='list_checks_by_account_type')
 async def list_checks_by_account_type(account_type: str = 'all') -> Dict[str, Dict[str, str]]:
     """Get all checks filtered by account type.
@@ -153,6 +156,7 @@ async def list_checks_by_account_type(account_type: str = 'all') -> Dict[str, Di
     checks = _default_sra.get_available_checks(account_type)
     return checks
 
+
 @mcp.tool(name='list_services')
 async def list_services() -> Dict[str, Any]:
     """Get all services supported by SRA Verify.
@@ -161,7 +165,8 @@ async def list_services() -> Dict[str, Any]:
         Dictionary containing the list of supported services.
     """
     services = _default_sra.get_available_services()
-    return {"services": services}
+    return {'services': services}
+
 
 @mcp.tool(name='list_checks_by_service')
 async def list_checks_by_service(service: str) -> Dict[str, Dict[str, str]]:
@@ -187,6 +192,7 @@ async def list_checks_by_service(service: str) -> Dict[str, Dict[str, str]]:
 
     return all_checks
 
+
 @mcp.tool(name='describe_check')
 async def describe_check(check_id: str) -> Dict[str, Any]:
     """Get detailed information about a specific check.
@@ -201,15 +207,10 @@ async def describe_check(check_id: str) -> Dict[str, Any]:
     check_info = all_checks.get(check_id)
 
     if not check_info:
-        return {
-            'error': f'Check {check_id} not found',
-            'available_checks_count': len(all_checks)
-        }
+        return {'error': f'Check {check_id} not found', 'available_checks_count': len(all_checks)}
 
-    return {
-        'check_id': check_id,
-        **check_info
-    }
+    return {'check_id': check_id, **check_info}
+
 
 @mcp.tool(name='run_check')
 async def run_check(

@@ -38,7 +38,7 @@ homepage = "https://github.com/awslabs/sra-verify-mcp"
 [dependency-groups]
 dev = [
     "ruff>=0.9.7",
-    "pyright>=1.1.398",
+    "pyright[nodejs]>=1.1.398",
     "pytest>=9.1",
     "pyyaml>=6.0",
 ]

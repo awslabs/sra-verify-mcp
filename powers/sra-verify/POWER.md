@@ -286,7 +286,7 @@ When security alerts aren't appearing or services seem misconfigured, use checks
 **Common Troubleshooting Scenarios:**
 - **No GuardDuty findings in audit account**: Check if GuardDuty is publishing to correct account
 - **Missing CloudTrail logs**: Verify CloudTrail is logging to log-archive account
-- **Security alerts not triggering**: Check if CloudWatch alarms exist and are configured correctly
+- **Security alerts not triggering**: Run the Security Hub checks to confirm findings are aggregated across Regions and an EventBridge rule routes them to a response target (SRA-SECURITYHUB-20, SRA-SECURITYHUB-25)
 
 ## Available MCP Tools
 

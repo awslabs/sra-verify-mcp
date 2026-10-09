@@ -4,7 +4,7 @@ import anyio
 import json
 import pytest
 import sys
-from awslabs.sraverify_mcp_server import server
+from awslabs.sraverify_mcp_server import __version__, server
 from conftest import isolated_env
 from mcp.client import Client
 from mcp.client.stdio import StdioServerParameters
@@ -144,6 +144,9 @@ async def test_stdio_server_starts_and_answers():
     )
     with anyio.fail_after(60):
         async with Client(params) as client:
+            info = client.server_info
+            assert info is not None
+            assert (info.name, info.version) == ('awslabs.sraverify-mcp-server', __version__)
             tools = (await client.list_tools()).tools
             assert {t.name for t in tools} == TOOLS
             result = await client.call_tool('list_services', {})

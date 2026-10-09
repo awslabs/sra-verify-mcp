@@ -20,6 +20,7 @@ import functools
 import logging
 import sys
 import warnings
+from awslabs.sraverify_mcp_server import __version__
 from loguru import logger
 from mcp.server.mcpserver import MCPServer
 from sraverify import SRAVerify
@@ -333,6 +334,9 @@ _SERVICES = ', '.join(f'"{s}"' for s in _default_sra.get_available_services())
 
 mcp = MCPServer(
     'awslabs.sraverify-mcp-server',
+    # MCP SDK 2.x reports an empty serverInfo.version unless one is passed (1.x fell
+    # back to the SDK's own version).
+    version=__version__,
     instructions=(
         'SRAVerify MCP server for AWS Security Reference Architecture compliance checks. '
         'This server provides tools to discover and RUN security checks directly via MCP tools. '

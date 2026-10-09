@@ -146,6 +146,15 @@ async def test_run_check_summary_and_camelcase_rows(fake_run_checks, make_findin
     json.dumps(result)
 
 
+async def test_run_check_strips_check_id(fake_run_checks, make_finding):
+    # describe_check and run_checks strip their inputs; run_check must too (R1).
+    fake_run_checks.returns = [make_finding('SRA-ORGANIZATIONS-01', 'PASS')]
+    result = await server.run_check(' SRA-ORGANIZATIONS-01 ', region='us-east-1')
+    assert result['status'] == 'completed', result
+    assert result['check_id'] == 'SRA-ORGANIZATIONS-01'
+    assert fake_run_checks.calls[0]['check_id'] == 'SRA-ORGANIZATIONS-01'
+
+
 # A5: error mapping
 
 

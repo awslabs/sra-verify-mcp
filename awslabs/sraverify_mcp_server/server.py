@@ -504,6 +504,7 @@ async def run_check(
     Returns:
         Dict with findings and summary, or error if check fails.
     """
+    check_id = check_id.strip()
     # Get check info to provide better error messages
     try:
         _default_sra.select_checks(check_id=check_id)

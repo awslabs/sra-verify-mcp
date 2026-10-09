@@ -35,10 +35,16 @@ logger.remove()  # Remove default handler
 logger.add(sys.stderr, level='ERROR')  # Only log errors to stderr
 
 # Import MCP and other dependencies
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from typing import Dict, Any, Optional
 import boto3
 from sraverify import SRAVerify
+from sraverify.core.errors import (
+    NoChecksSelectedError,
+    PartitionUndeterminedError,
+    SRAVerifyError,
+    UnknownCheckError,
+)
 
 # CRITICAL: Reconfigure sraverify logger AFTER import to suppress all output
 # The sraverify logger is configured at import time, so we need to override it
@@ -50,7 +56,28 @@ sraverify_logger.addHandler(logging.NullHandler())
 sraverify_logger.propagate = False
 
 # Global instance for read-only operations (listing checks, services, etc.)
-_default_sra = SRAVerify(debug=False)
+_default_sra = SRAVerify()
+
+
+def _partition_error_message(exc: PartitionUndeterminedError) -> str:
+    """Explain a PartitionUndeterminedError in MCP tool terms (never CLI flags).
+
+    Args:
+        exc: The error raised by sraverify when it cannot resolve the scan Region.
+
+    Returns:
+        A message telling the agent which tool argument or server setting to provide.
+    """
+    if exc.reason == 'invalid':
+        return (
+            f'{exc.bad_value!r} is not an AWS Region name. '
+            'Pass a Region name such as "us-east-1" as the region argument.'
+        )
+    return (
+        'No AWS Region could be determined, so the AWS partition is unknown. '
+        'Pass the region argument (for example region="us-east-1"), or set '
+        "AWS_DEFAULT_REGION in the MCP server's env (or region = in the AWS profile it uses)."
+    )
 
 
 def _get_sra_instance(
@@ -114,12 +141,11 @@ def _get_sra_instance(
     return SRAVerify(
         session=session,
         regions=regions_list,
-        debug=False,
         **timeout_kwargs,
     )
 
 
-mcp = FastMCP(
+mcp = MCPServer(
     'awslabs.sraverify-mcp-server',
     instructions=(
         'SRAVerify MCP server for AWS Security Reference Architecture compliance checks. '
@@ -245,13 +271,16 @@ async def run_check(
         Dict with findings and summary, or error if check fails.
     """
     # Get check info to provide better error messages
-    check_info = _default_sra.get_available_checks('all').get(check_id)
-    if not check_info:
+    try:
+        _default_sra.select_checks(check_id=check_id)
+    except UnknownCheckError as e:
         return {
             'status': 'failed',
             'check_id': check_id,
             'error': f'Check {check_id} not found. Use list_checks_by_account_type or list_checks_by_service to see available checks.',
+            'suggestions': e.suggestions,
         }
+    check_info = _default_sra.get_available_checks('all')[check_id]
 
     # Check if this is an audit or log-archive account type check that might need account IDs
     account_type = check_info.get('account_type', '')
@@ -284,11 +313,15 @@ async def run_check(
             max_pool_connections=max_pool_connections,
         )
 
-        findings = sra_instance.run_checks(
-            check_id=check_id,
-            audit_accounts=audit_accounts,
-            log_archive_accounts=log_archive_accounts,
-        )
+        # to_row() keeps the wire format at the 16 CamelCase keys of Finding.FIELDS.
+        findings = [
+            f.to_row()
+            for f in sra_instance.run_checks(
+                check_id=check_id,
+                audit_accounts=audit_accounts,
+                log_archive_accounts=log_archive_accounts,
+            )
+        ]
 
         total = len(findings)
         passed = sum(1 for f in findings if f.get('Status') == 'PASS')
@@ -309,6 +342,39 @@ async def run_check(
             'region': region,
         }
 
+    except PartitionUndeterminedError as e:
+        return {
+            'status': 'failed',
+            'check_id': check_id,
+            'error': _partition_error_message(e),
+            'role_arn': role_arn,
+            'region': region,
+        }
+    except UnknownCheckError as e:
+        return {
+            'status': 'failed',
+            'check_id': check_id,
+            'error': str(e),
+            'suggestions': e.suggestions,
+            'role_arn': role_arn,
+            'region': region,
+        }
+    except NoChecksSelectedError as e:
+        return {
+            'status': 'failed',
+            'check_id': check_id,
+            'error': str(e),
+            'role_arn': role_arn,
+            'region': region,
+        }
+    except SRAVerifyError as e:
+        return {
+            'status': 'failed',
+            'check_id': check_id,
+            'error': str(e),
+            'role_arn': role_arn,
+            'region': region,
+        }
     except Exception as e:
         logger.error(f'Check {check_id} failed: {e}')
         return {

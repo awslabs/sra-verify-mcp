@@ -61,3 +61,6 @@ coverage.xml
 
 # Kiro
 .kiro/*
+
+# Agent task files
+.agents/

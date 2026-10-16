@@ -10,25 +10,27 @@ An MCP server for [SRA Verify](https://github.com/awslabs/sra-verify), a tool th
 
 ### MCP Tools
 
-| Tool                          | Description                                                                            |
-| ----------------------------- | -------------------------------------------------------------------------------------- |
-| `list_services`               | List all AWS services supported by SRA Verify                                          |
-| `list_checks_by_service`      | Get checks for a specific service (e.g., GuardDuty, CloudTrail, IAM)                   |
-| `list_checks_by_account_type` | Get checks filtered by account type (management, audit, log-archive, application, all) |
-| `describe_check`              | Get detailed info about a specific check including severity and requirements           |
-| `run_check`                   | Execute a security check and return findings with pass/fail status                     |
+| Tool                          | Description                                                                                                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_services`               | List all AWS services supported by SRA Verify                                                                                                                                                         |
+| `list_checks_by_service`      | Get checks for a specific service (e.g., GuardDuty, CloudTrail, IAM), or `all`. An unknown name returns an `error` with the `available_services` list                                                 |
+| `list_checks_by_account_type` | Get checks filtered by account type (management, audit, log-archive, application, all)                                                                                                                |
+| `describe_check`              | Get detailed info about a check: severity, check logic, resource type, remediation (text, CLI, console), SRA sections, reference URLs, and whether it needs `audit_accounts` / `log_archive_accounts` |
+| `run_check`                   | Execute a security check and return findings with pass/fail status                                                                                                                                    |
+| `run_checks`                  | Execute every check for a service and/or account type in one scan. Returns a summary, per-check counts, and the FAIL/ERROR findings by default                                                        |
 
 ### Supported Services
 
-SRA Verify covers a wide range of AWS security services including: Access Analyzer, Audit Manager, CloudTrail, CloudWatch, Config, GuardDuty, IAM, Inspector, Macie, Organizations, S3, Security Hub, Security Lake, Shield, WAF, and more. Review the full [list of checks](https://github.com/awslabs/sra-verify/blob/main/docs/checks.txt) on the SRA Verify Github.
+SRA Verify 0.3.3 has 192 checks across 20 services. These are the exact names `list_checks_by_service` and `run_checks` accept: Account, AuditManager, CloudTrail, Config, EC2, FirewallManager, GuardDuty, IAM, IAM Access Analyzer, Inspector, Macie, Organizations, Route 53 Resolver, S3, Security Hub, Security Hub CSPM, SecurityIncidentResponse, SecurityLake, Shield, WAF. Review the full [list of checks](https://github.com/awslabs/sra-verify/blob/main/docs/checks.txt) on the SRA Verify Github.
 
 > Note: SRA Verify contains checks for several services, but may not contain a check for every consideration of the AWS Security Reference Architecture. Review the [AWS Prescriptive Guidance](https://docs.aws.amazon.com/prescriptive-guidance/latest/security-reference-architecture/welcome.html) for more information on AWS Security Reference Architecture.
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager
 - AWS credentials with appropriate read permissions for security services
+- An AWS Region, from `AWS_DEFAULT_REGION` in the MCP server's `env`, the AWS profile's `region`, or the `region` tool argument. SRA Verify uses it to determine the AWS partition
 - Access to an AWS Organization with SRA account structure (management, audit, log-archive accounts)
 
 ### Cross-Account Role Setup
@@ -52,6 +54,8 @@ The template creates:
 - **SRAVerifyMCPCheckPermissions** — additional permissions for account-level checks
 
 The role's trust policy allows only the principal you specify in the `Role` parameter to assume it.
+
+The `SRAVerifyMCPLeastPrivilege` statements are generated from the SRA Verify checks by sra-verify's `util/generate_iam_policy.py`. If you deployed the role for an earlier release, update the StackSet and the management-account stack with the new template. SRA Verify 0.3.3 needs 23 more read-only actions, including `ec2:DescribeRegions`.
 
 > Note: StackSets don't apply to the management account. You must also deploy  `1-sraverify-mcp-roles.yaml` as a standalone CloudFormation template to your management account.
 
@@ -85,7 +89,8 @@ Enter the following example configuration file. Update "/path/to/sra-verify-mcp/
       ],
       "disabled": false,
       "env": {
-        "AWS_PROFILE": "my-profile" //Optional, you can remove this to use your default AWS credential chain
+        "AWS_PROFILE": "my-profile", //Optional, you can remove this to use your default AWS credential chain
+        "AWS_DEFAULT_REGION": "us-east-1" //Sets the AWS partition and lets scans without a region cover all enabled Regions
       }
     }
   },
@@ -105,7 +110,7 @@ Enter the following example configuration file. Update "/path/to/sra-verify-mcp/
 }
 ```
 
-Alternatively, you can run directly with uvx.
+Alternatively, you can run directly with uvx. Releases before 0.1.0 don't work with SRA Verify 0.3.x, so the example asks uvx for `sraverify-mcp>=0.1.0`.
 ```json
 {
   "name": "sra",
@@ -115,9 +120,15 @@ Alternatively, you can run directly with uvx.
     "awslabs.sraverify-mcp-server": {
       "command": "uvx",
       "args": [
+        "--from",
+        "sraverify-mcp>=0.1.0",
         "sraverify-mcp"
       ],
-      "disabled": false
+      "disabled": false,
+      "env": {
+        "AWS_PROFILE": "my-profile", //Optional, you can remove this to use your default AWS credential chain
+        "AWS_DEFAULT_REGION": "us-east-1" //Sets the AWS partition and lets scans without a region cover all enabled Regions
+      }
     }
   },
   "tools": [
@@ -137,13 +148,21 @@ Alternatively, you can run directly with uvx.
 ```
 
 
-You can update `my-profile` with the AWS CLI profile that has permissions to assume the `SRAMemberMCPRole`, or remove it to use your default AWS credentials.
+You can update `my-profile` with the AWS CLI profile that has permissions to assume the `SRAMemberMCPRole`, or remove it to use your default AWS credentials. Set `AWS_DEFAULT_REGION` to your home Region.
+
+`run_check` and `run_checks` are intentionally left out of `allowedTools`, so Kiro asks before each scan makes AWS API calls.
 
 To invoke the agent, include `--agent sra` when starting a new chat.
 
 ```bash
 kiro-cli chat --agent sra
 ```
+
+#### Regions and partitions
+
+- `region` takes one Region, such as `"us-east-1"`. `regions` takes a list, such as `["us-east-1", "eu-west-1"]`. When you pass both, they are merged.
+- Omitting both, or passing `region="all"`, scans all enabled Regions. That works only when the server's `env` sets `AWS_DEFAULT_REGION` or the AWS profile sets a `region`. Otherwise the tool returns a "No AWS Region could be determined" error and the agent asks you for a Region.
+- The first Region sets the AWS partition and the Region the `role_arn` is assumed in. For AWS GovCloud (US) or China, use a Region from that partition, such as `us-gov-west-1` or `cn-north-1`.
 
 ## Usage Examples
 
@@ -156,13 +175,11 @@ Once configured, you can use natural language prompts with the Kiro CLI agent:
 **Discovery:**
 ```bash
 [sra] > List all AWS services that SRA Verify can check
-Running tool list_checks_by_account_type with the param (from mcp server: awslabs.sraverify-mcp-server)
- ⋮  {
- ⋮    "account_type": "all"
- ⋮  }
+Running tool list_services with the param (from mcp server: awslabs.sraverify-mcp-server)
+ ⋮  {}
  - Completed in 0.16s
 
-> SRA Verify can check the following 17 AWS services:
+> SRA Verify can check the following 20 AWS services:
 
 1. Account
 2. AuditManager
@@ -171,16 +188,19 @@ Running tool list_checks_by_account_type with the param (from mcp server: awslab
 5. EC2
 6. FirewallManager
 7. GuardDuty
-8. IAM Access Analyzer
-9. Inspector
-10. Macie
-11. Organizations
-12. S3
-13. SecurityHub
-14. SecurityIncidentResponse
-15. SecurityLake
-16. Shield
-17. WAF
+8. IAM
+9. IAM Access Analyzer
+10. Inspector
+11. Macie
+12. Organizations
+13. Route 53 Resolver
+14. S3
+15. Security Hub
+16. Security Hub CSPM
+17. SecurityIncidentResponse
+18. SecurityLake
+19. Shield
+20. WAF
 
 Would you like to see the available checks for any specific service?
 ```
@@ -193,9 +213,9 @@ Running tool list_checks_by_service with the param (from mcp server: awslabs.sra
  ⋮  }
  - Completed in 0.14s
 
-> Here are all 25 GuardDuty checks available in SRA Verify:
+> Here are all 26 GuardDuty checks available in SRA Verify:
 
-## Application Account Checks (12)
+## Application Account Checks (15)
 Core Configuration:
 - **SRA-GUARDDUTY-01** (HIGH) - GuardDuty detector exists
 - **SRA-GUARDDUTY-02** (LOW) - GuardDuty finding frequency is set
@@ -223,7 +243,7 @@ Agent Management:
 - **SRA-GUARDDUTY-13** (HIGH) - Service administration delegated
 - **SRA-GUARDDUTY-14** (HIGH) - Delegated admin is audit account
 
-## Audit Account Checks (7)
+## Audit Account Checks (9)
 Organization-Wide Configuration:
 - **SRA-GUARDDUTY-15** (HIGH) - Auto-enablement configured
 - **SRA-GUARDDUTY-16** (HIGH) - Member account limit not reached
@@ -235,6 +255,7 @@ Auto-Enablement for Features:
 - **SRA-GUARDDUTY-23** (HIGH) - Runtime Monitoring auto-enablement configured
 - **SRA-GUARDDUTY-24** (HIGH) - Lambda Network Logs auto-enablement configured
 - **SRA-GUARDDUTY-25** (HIGH) - RDS Login Events auto-enablement configured
+- **SRA-GUARDDUTY-26** (HIGH) - AI Protection auto-enablement configured
 ```
 
 **Running Checks:**
@@ -289,12 +310,12 @@ Enable GuardDuty in ap-northeast-3 to ensure comprehensive threat detection cove
 ```bash
 [sra] > Run all GuardDuty checks for my audit account 123456789012 in us-east-1 and summarize the results
 
-Running tool run_check with the param (from mcp server: awslabs.sraverify-mcp-server)
+Running tool run_checks with the param (from mcp server: awslabs.sraverify-mcp-server)
  ⋮  {
+ ⋮    "service": "GuardDuty",
  ⋮    "audit_accounts": [
  ⋮      "123456789012"
  ⋮    ],
- ⋮    "check_id": "SRA-GUARDDUTY-01",
  ⋮    "region": "us-east-1"
  ⋮  }
 
@@ -302,48 +323,16 @@ Allow this action? Use 't' to trust (always allow) this tool for the session. [y
 
 [sra] > y
 
-Running tool run_check with the param (from mcp server: awslabs.sraverify-mcp-server)
- ⋮  {
- ⋮    "audit_accounts": [
- ⋮      "123456789012"
- ⋮    ],
- ⋮    "check_id": "SRA-GUARDDUTY-02",
- ⋮    "region": "us-east-1"
- ⋮  }
-
-Allow this action? Use 't' to trust (always allow) this tool for the session. [y/n/t]:
-
-[sra] > y
-
-Running tool run_check with the param (from mcp server: awslabs.sraverify-mcp-server)
- ⋮  {
- ⋮    "audit_accounts": [
- ⋮      "123456789012"
- ⋮    ],
- ⋮    "check_id": "SRA-GUARDDUTY-03",
- ⋮    "region": "us-east-1"
- ⋮  }
-
-Allow this action? Use 't' to trust (always allow) this tool for the session. [y/n/t]:
-
-[sra] > y
-
- - Completed in 1.150s
-
- - Completed in 1.65s
-
- - Completed in 1.592s
-
-_truncated the other 22 run_check calls_
+ - Completed in 9.842s
 
 > ## GuardDuty Security Assessment Summary
 
 Account: 123456789012 (Audit)
 Region: us-east-1
-Total Checks: 25
+Total Checks: 26
 
 ### Overall Results
-- ✅ Passed: 23 checks (92%)
+- ✅ Passed: 24 checks (92%)
 - ❌ Failed: 1 check (4%)
 - ⚠️ Errors: 1 check (4%)
 
@@ -390,7 +379,7 @@ Total Checks: 25
 - ECS Fargate agent management enabled
 - EC2 agent management enabled
 
-✅ Organization Configuration (7/7)
+✅ Organization Configuration (9/9)
 - Auto-enablement configured for new accounts
 - Member account limit not reached
 - S3 data events auto-enablement configured
@@ -399,6 +388,7 @@ Total Checks: 25
 - Runtime Monitoring auto-enablement configured
 - Lambda Network Logs auto-enablement configured
 - RDS Login Events auto-enablement configured
+- AI Protection auto-enablement configured
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -434,13 +424,14 @@ The SRA Verify Power bundles the MCP server with onboarding workflows and steeri
 5. Choose **Import power from a folder**.
 6. Select /path/to/powers/sra-verify
 
-#### Configure Your AWS Profile
+#### Configure Your AWS Profile and Region
 
-After installing the power, update the AWS profile in the MCP configuration:
+After installing the power, update the AWS profile and Region in the MCP configuration:
 
 1. Open `~/.kiro/settings/mcp.json` in your workspace. You can also choose the edit button next to MCP Servers in the Kiro tab.
 2. Find the `AWS_PROFILE` value — it defaults to `SRA_VERIFY_MCP_PROFILE_NAME`
-3. Replace `SRA_VERIFY_MCP_PROFILE_NAME` with your actual AWS CLI profile name:
+3. Replace `SRA_VERIFY_MCP_PROFILE_NAME` with your actual AWS CLI profile name
+4. Replace `SRA_VERIFY_MCP_REGION` in `AWS_DEFAULT_REGION` with your home Region (for example `us-east-1`). It sets the AWS partition and lets scans without a `region` cover all enabled Regions:
 
 ```json
 {
@@ -455,7 +446,8 @@ After installing the power, update the AWS profile in the MCP configuration:
       ],
       "disabled": false,
       "env": {
-        "AWS_PROFILE": "my-profile" // Update this profile
+        "AWS_PROFILE": "my-profile", // Update this profile
+        "AWS_DEFAULT_REGION": "us-east-1" // Update this Region
       }
     }
   }

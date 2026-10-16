@@ -1,0 +1,95 @@
+# Every job runs on the declared Python floor (3.11) with the uv version pinned below.
+# UV_PYTHON_DOWNLOADS=never makes uv use the image's interpreter instead of fetching one.
+# No job commits or pushes.
+default:
+  image: ghcr.io/astral-sh/uv:0.12.23-python3.11-trixie-slim
+
+variables:
+  UV_PYTHON_DOWNLOADS: 'never'
+
+# Fails when uv.lock no longer matches pyproject.toml (a dependency or pin was edited
+# without relocking). Fix locally with `uv lock` and commit uv.lock.
+lock-check:
+  script:
+    - uv lock --check
+
+# Fails when pyright reports a type error in awslabs/. pyright[nodejs] ships its own
+# Node.js, so the slim image needs nothing extra. Reproduce with `uv run pyright`.
+pyright:
+  script:
+    - uv sync --frozen
+    - uv run --frozen pyright
+
+# Fails on a lint finding or on a file ruff format would change. Reproduce with
+# `uv run ruff check && uv run ruff format --check`; fix with `uv run ruff check --fix`
+# and `uv run ruff format`, then commit.
+ruff:
+  script:
+    - uv sync --frozen
+    - uv run --frozen ruff check
+    - uv run --frozen ruff format --check
+
+# Fails when any test fails; the job log shows each failure's traceback. The suite is
+# offline: tests/conftest.py refuses outbound AWS calls. test_template_in_sync is
+# skipped here (it needs SRAVERIFY_REPO; the iam-drift job runs it).
+# Reproduce with `uv run pytest -q --tb=short`.
+unit-tests:
+  script:
+    - uv sync --frozen
+    - uv run --frozen pytest -q --tb=short
+
+# Fails when the SRAVerifyLeastPrivilege statements in 1-sraverify-mcp-roles.yaml no
+# longer match what the locked sraverify version needs, or when the sra-verify ref
+# cannot be matched to the locked version. It clones sra-verify (public GitHub mirror;
+# override with SRAVERIFY_GIT_URL) and picks the ref in this order: SRAVERIFY_REF if set,
+# tag v<locked version>, tag <locked version>, then the default branch only if its
+# __version__ equals the locked version. Otherwise it fails: tag sra-verify for that
+# release, or set SRAVERIFY_REF. Uses the non-slim image because the slim one has no git.
+# Fix drift from a sra-verify checkout at that version with
+# `cd sraverify && uv run python ../util/generate_iam_policy.py --template <this repo>/1-sraverify-mcp-roles.yaml`
+# and commit the template. Reproduce with
+# `SRAVERIFY_REPO=<sra-verify checkout> uv run pytest -q tests/test_iam_template.py`.
+iam-drift:
+  image: ghcr.io/astral-sh/uv:0.12.23-python3.11-trixie
+  variables:
+    SRAVERIFY_GIT_URL: https://github.com/awslabs/sra-verify.git
+  script:
+    - git --version
+    - uv sync --frozen
+    - SRAVERIFY_VERSION="$(uv run --frozen python -c 'import importlib.metadata as m; print(m.version("sraverify"))')"
+    - git clone --quiet "$SRAVERIFY_GIT_URL" /tmp/sra-verify
+    - |
+      if [ -n "${SRAVERIFY_REF:-}" ]; then
+        REF="$SRAVERIFY_REF"
+      elif git -C /tmp/sra-verify rev-parse --verify --quiet "refs/tags/v$SRAVERIFY_VERSION" >/dev/null; then
+        REF="v$SRAVERIFY_VERSION"
+      elif git -C /tmp/sra-verify rev-parse --verify --quiet "refs/tags/$SRAVERIFY_VERSION" >/dev/null; then
+        REF="$SRAVERIFY_VERSION"
+      else
+        HEAD_VERSION="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' /tmp/sra-verify/sraverify/sraverify/__init__.py)"
+        if [ "$HEAD_VERSION" = "$SRAVERIFY_VERSION" ]; then
+          REF=HEAD
+        else
+          echo "sra-verify has no tag v$SRAVERIFY_VERSION or $SRAVERIFY_VERSION, and its default branch is $HEAD_VERSION, not the locked $SRAVERIFY_VERSION. Tag sra-verify for $SRAVERIFY_VERSION or set SRAVERIFY_REF." >&2
+          exit 1
+        fi
+      fi
+      git -C /tmp/sra-verify checkout --quiet "$REF"
+      echo "sraverify $SRAVERIFY_VERSION: sra-verify ref $REF ($(git -C /tmp/sra-verify rev-parse --short HEAD))"
+    - SRAVERIFY_REPO=/tmp/sra-verify uv run --frozen pytest -q --tb=short tests/test_iam_template.py
+
+# Scheduled canary: relocks every dependency to the newest release the pins allow, then
+# runs pyright and the tests, so an upstream release (sraverify, mcp, boto3) that breaks
+# the server shows up before users hit it. `uv tree --outdated` lists releases beyond
+# the pins. It never commits the upgraded lock. Runs only from a pipeline schedule with
+# LATEST_DEPS=true (create a weekly one in GitLab: Build > Pipeline schedules).
+# Reproduce with `uv lock --upgrade && uv run pytest -q`, then `git checkout uv.lock`.
+latest-deps:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $LATEST_DEPS == "true"'
+  script:
+    - uv lock --upgrade
+    - uv tree --outdated --depth 1 || true
+    - uv sync --locked
+    - uv run --locked pyright
+    - uv run --locked pytest -q --tb=short

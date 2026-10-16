@@ -10,7 +10,8 @@
       ],
       "disabled": false,
       "env": {
-        "AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME"
+        "AWS_PROFILE": "SRA_VERIFY_MCP_PROFILE_NAME",
+        "AWS_DEFAULT_REGION": "SRA_VERIFY_MCP_REGION"
       }
     }
   }
